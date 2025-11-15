@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Rep Counter</title>
+</head>
+<body>
+  <h1>Rep Counter (Squat or Bicep Curl)</h1>
+
+  <label>Choose Exercise: </label>
+  <select id="exerciseSelect">
+    <option value="curl">Bicep Curl</option>
+    <option value="squat">Squat</option>
+  </select>
+
+  <video id="webcam" width="640" height="480" autoplay></video>
+
+  <div>Reps: <span id="repCount">0</span></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
