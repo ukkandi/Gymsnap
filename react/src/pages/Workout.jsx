@@ -1,9 +1,9 @@
 import { useState } from "react";
+import RepCounter from "../components/RepCounter";
 
 export default function Workout() {
-  const [exercise, setExercise] = useState("Push Ups");
+  const [exercise, setExercise] = useState("curl");
   const [reps, setReps] = useState(0);
-  const exercises = ["Push Ups", "Sit Ups", "Squats", "Pull Ups", "Bench Press"];
 
   return (
     <div style={{ padding: "20px" }}>
@@ -11,24 +11,25 @@ export default function Workout() {
 
       <label>
         Choose Exercise:
-        <select 
-          value={exercise} 
+        <select
+          value={exercise}
           onChange={(e) => setExercise(e.target.value)}
           style={{ marginLeft: "10px" }}
         >
-          {exercises.map((ex) => (
-            <option key={ex} value={ex}>{ex}</option>
-          ))}
+          <option value="curl">Bicep Curl</option>
+          <option value="squat">Squat</option>
         </select>
       </label>
 
-      <h2 style={{ marginTop: "20px" }}>{exercise}: {reps} reps</h2>
+      <h2 style={{ marginTop: "20px" }}>
+        {exercise}: {reps} reps
+      </h2>
 
-      <button onClick={() => setReps(reps + 1)}>Add Rep</button>
-      <button onClick={() => setReps(0)} style={{ marginLeft: "10px" }}>
-        Reset
-      </button>
+      <RepCounter
+        exercise={exercise}
+        reps={reps}
+        onRepChange={(count) => setReps(count)}
+      />
     </div>
   );
 }
-
