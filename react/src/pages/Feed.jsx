@@ -1,72 +1,79 @@
-import { gymbros, calculateCompatibility, currentUser } from "../data/mockGymbros";
+import { useState } from "react";
 
 export default function Feed() {
+  // mock gym posts (later replaced with real db)
+  const [posts] = useState([
+    {
+      id: 1,
+      name: "Jake B.",
+      avatar: "https://i.pravatar.cc/150?img=12",
+      video: "https://cdn.coverr.co/videos/coverr-man-lifting-weights-9873/1080p.mp4",
+      caption: "Hit a new PR today 🔥 315lb bench!",
+      reactions: 128
+    },
+    {
+      id: 2,
+      name: "Leo M.",
+      avatar: "https://i.pravatar.cc/150?img=8",
+      video: "https://cdn.coverr.co/videos/coverr-aggressive-powerlifting-3128/1080p.mp4",
+      caption: "Back day intensity 🚀",
+      reactions: 254
+    },
+    {
+      id: 3,
+      name: "Santi G.",
+      avatar: "https://i.pravatar.cc/150?img=25",
+      video: "https://cdn.coverr.co/videos/coverr-outdoor-fitness-workout-2197/1080p.mp4",
+      caption: "Morning pump! ☀️",
+      reactions: 92
+    }
+  ]);
+
   return (
-    <div className="pt-20 pb-24 px-4 max-w-md mx-auto">
-      <h2 className="text-2xl font-semibold mb-4">Squad Feed</h2>
-      <p className="text-gray-400 text-sm mb-6">
-        See what other gymrats are up to today.
-      </p>
-
-      <div className="space-y-4">
-        {gymbros.map(bro => {
-          const score = calculateCompatibility(currentUser, bro);
-          return (
-            <div
-              key={bro.id}
-              className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 shadow-[0_18px_40px_rgba(0,0,0,0.7)] overflow-hidden"
-            >
-              {/* Fake content thumbnail */}
-              <div className="h-40 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 relative">
-                <div className="absolute inset-0 bg-black/30" />
-                <div className="absolute bottom-3 left-4">
-                  <span className="px-2 py-1 text-xs rounded-full bg-black/60 text-white/80">
-                    Chest day · PR attempt
-                  </span>
-                </div>
-              </div>
-
-              {/* Meta */}
-              <div className="p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 shadow-lg" />
-                    <div>
-                      <div className="font-semibold">{bro.name}</div>
-                      <div className="text-xs text-gray-400">
-                        {bro.gym} · {bro.gymPersonality}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-gray-400">Match score</div>
-                    <div className="text-lg font-semibold text-emerald-400">
-                      {score}%
-                    </div>
-                  </div>
-                </div>
-
-                <div className="text-sm text-gray-300 mt-1">
-                  “{bro.vibe.slice(0, 2).join(" · ")}” · Goals: {bro.goals.join(", ")}
-                </div>
-
-                {/* Reactions */}
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
-                  <div className="flex space-x-3 text-xl">
-                    <button>🔥</button>
-                    <button>💀</button>
-                    <button>💪</button>
-                    <button>🧠</button>
-                  </div>
-                  <button className="text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">
-                    DM / Spot
-                  </button>
-                </div>
-              </div>
+    <div className="pt-4 pb-24">
+      {posts.map(post => (
+        <div
+          key={post.id}
+          className="mb-8 bg-black/40 rounded-2xl overflow-hidden shadow-xl border border-white/10"
+        >
+          {/* Header */}
+          <div className="flex items-center p-4 space-x-3">
+            <img
+              src={post.avatar}
+              className="w-10 h-10 rounded-full"
+            />
+            <div>
+              <div className="font-semibold">{post.name}</div>
+              <div className="text-gray-400 text-xs">posted just now</div>
             </div>
-          );
-        })}
-      </div>
+          </div>
+
+          {/* Video */}
+          <video
+            src={post.video}
+            className="w-full max-h-[450px] object-cover"
+            autoPlay
+            loop
+            muted
+            playsInline
+          />
+
+          {/* Footer */}
+          <div className="p-4">
+            <p className="text-gray-200 mb-3 text-sm">{post.caption}</p>
+            <div className="flex items-center space-x-4 text-xl">
+              <button className="hover:scale-110 transition">🔥</button>
+              <button className="hover:scale-110 transition">💪🏽</button>
+              <button className="hover:scale-110 transition">👑</button>
+              <button className="hover:scale-110 transition">💀</button>
+              <button className="hover:scale-110 transition">👊🏽</button>
+              <span className="text-gray-400 text-sm ml-auto">
+                {post.reactions} reactions
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
