@@ -1,3 +1,5 @@
+import { Link } from "react-router-dom";
+
 const groups = [
   {
     name: "GMU Powerlifters",
@@ -40,9 +42,14 @@ export default function Groups() {
               <div className="text-xs text-gray-400">{g.members} members</div>
             </div>
             <p className="text-sm text-gray-300 mb-3">{g.vibe}</p>
-            <button className="text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition">
-              View chat / meetups
-            </button>
+
+            <Link
+              to={`/chat/${encodeURIComponent(g.name)}`}
+              className="text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 transition inline-block"
+            >
+              Open chat
+            </Link>
+
           </div>
         ))}
       </div>
