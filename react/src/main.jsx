@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import App from "./App.jsx";
 import GroupChat from "./pages/GroupChat.jsx";
+import Calendar from "./pages/Calendar.jsx";
 import "./index.css";
 
 import { HeroUIProvider } from "@heroui/react";
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 
               {/* Dynamic group chat route */}
               <Route path="/chat/:groupName" element={<GroupChat />} />
+              <Route path="/calendar" element={<Calendar />} />
             </Routes>
           </BrowserRouter>
         </AccountabilityRoomsProvider>

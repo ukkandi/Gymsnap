@@ -3,7 +3,8 @@ import {
   BoltIcon,
   HeartIcon,
   UserGroupIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  CalendarDaysIcon
 } from "@heroicons/react/24/outline";
 
 export default function BottomNav({ activeTab, setActiveTab }) {
@@ -12,6 +13,11 @@ export default function BottomNav({ activeTab, setActiveTab }) {
       id: "feed",
       label: "Feed",
       icon: FireIcon
+    },
+    {
+      id: "streaks",
+      label: "Streaks",
+      icon: CalendarDaysIcon
     },
     {
       id: "track",
@@ -46,7 +52,7 @@ export default function BottomNav({ activeTab, setActiveTab }) {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={
-                "flex flex-col items-center mx-3 transition " +
+              "flex flex-col items-center mx-2 transition " +
                 (activeTab === item.id
                   ? "text-white"
                   : "text-gray-400 hover:text-white/80")

@@ -7,12 +7,16 @@ export default function RepCounter({ exercise, reps, onRepChange, size = 400 }) 
   useEffect(() => {
     if (!videoRef.current) return;
 
-    runRepCounter(
+    const stop = runRepCounter(
       videoRef.current,
       (newRep) => onRepChange(newRep),
       exercise
     );
-  }, [exercise]);
+
+    return () => {
+      if (typeof stop === "function") stop();
+    };
+  }, [exercise, onRepChange]);
 
   const dimension = `${size}px`;
 

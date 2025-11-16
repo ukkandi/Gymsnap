@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import RepCounter from "../components/RepCounter";
 import { useUserData } from "../context/UserDataContext.jsx";
 
@@ -12,6 +12,22 @@ const formatMinutesToTime = (minutes = 0) => {
   return `${displayHour}:${mins.toString().padStart(2, "0")} ${suffix}`;
 };
 
+const EXERCISES = [
+  { id: "curl", label: "Bicep Curl (AI)" },
+  { id: "squat", label: "Squat (AI)" },
+  { id: "pushup", label: "Push-Up (AI)" },
+  { id: "pullup", label: "Pull-Up (AI)" },
+  { id: "bench", label: "Bench Press (AI)" },
+  { id: "deadlift", label: "Deadlift (AI)" },
+  { id: "row", label: "Row (AI)" },
+  { id: "lunge", label: "Lunge (AI)" },
+];
+
+const MANUAL_OPTIONS = [
+  ...EXERCISES,
+  { id: "custom", label: "Custom Exercise" },
+];
+
 export default function Workout() {
   const { user, logWorkoutSession } = useUserData();
   const [exercise, setExercise] = useState("curl");
@@ -19,6 +35,11 @@ export default function Workout() {
   const [sessionStart, setSessionStart] = useState(null);
   const [status, setStatus] = useState("idle");
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+  const [manualExercise, setManualExercise] = useState("pushup");
+  const [manualName, setManualName] = useState("");
+  const [manualSets, setManualSets] = useState("3");
+  const [manualRepsPerSet, setManualRepsPerSet] = useState("10");
 
   const absoluteRepsRef = useRef(0);
   const baselineRef = useRef(0);
@@ -70,6 +91,36 @@ export default function Workout() {
         ? "Session saved. Streak & behavior updated."
         : "Start a session and let the camera feed your streak.";
 
+  useEffect(() => {
+    baselineRef.current = absoluteRepsRef.current;
+    setSessionReps(0);
+    setSessionStart(null);
+    setStatus("idle");
+  }, [exercise]);
+
+  const handleManualLog = () => {
+    const sets = Math.max(1, Number(manualSets) || 0);
+    const repsPerSet = Math.max(1, Number(manualRepsPerSet) || 0);
+    const totalReps = sets * repsPerSet;
+    if (!totalReps) return;
+    const customName = manualName.trim();
+    if (manualExercise === "custom" && !customName) return;
+    const chosen =
+      manualExercise === "custom"
+        ? customName
+        : manualExercise;
+    const now = Date.now();
+    logWorkoutSession({
+      exercise: chosen,
+      reps: totalReps,
+      startedAt: now - 1000 * 60 * 5,
+      endedAt: now,
+    });
+    setManualRepsPerSet("10");
+    setManualSets("3");
+    setManualName("");
+  };
+
   return (
     <div className="pt-16 pb-24 px-4 text-white max-w-md mx-auto">
       <div className="mb-6">
@@ -80,83 +131,164 @@ export default function Workout() {
         <p className="text-gray-400 text-sm mt-2">{statusMessage}</p>
       </div>
 
-      <div className="mb-4">
-        <label className="text-xs text-gray-400 uppercase">Exercise</label>
-        <select
-          value={exercise}
-          onChange={(e) => setExercise(e.target.value)}
-          className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 mt-2 text-white"
+      <div className="flex items-center justify-between mb-5">
+        <div className="text-sm text-gray-400">
+          {manualMode ? "Manual logging enabled" : "AI camera tracking"}
+        </div>
+        <button
+          onClick={() => setManualMode((prev) => !prev)}
+          className="px-4 py-2 rounded-full border border-white/15 text-xs uppercase tracking-wide text-gray-200 hover:text-white hover:border-white/40 transition"
         >
-          <option value="curl">Bicep Curl</option>
-          <option value="squat">Squat</option>
-        </select>
+          {manualMode ? "Use AI camera" : "Use manual log"}
+        </button>
       </div>
 
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <div className="text-xs text-gray-400 uppercase">Session reps</div>
-          <div className="text-2xl font-semibold mt-1">{sessionReps}</div>
-        </div>
+      {!manualMode && (
+        <>
+          <div className="mb-4">
+            <label className="text-xs text-gray-400 uppercase">Exercise</label>
+            <select
+              value={exercise}
+              onChange={(e) => setExercise(e.target.value)}
+              className="w-full bg-black/40 border border-white/10 rounded-2xl px-4 py-3 mt-2 text-white"
+            >
+              {EXERCISES.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={beginSession}
-            disabled={sessionActive}
-            className={`px-4 py-3 rounded-2xl text-sm font-semibold transition ${
-              sessionActive
-                ? "bg-white/10 text-gray-400 cursor-not-allowed"
-                : "bg-white text-black hover:bg-gray-100"
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="text-xs text-gray-400 uppercase">Session reps</div>
+              <div className="text-2xl font-semibold mt-1">{sessionReps}</div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={beginSession}
+                disabled={sessionActive}
+                className={`px-4 py-3 rounded-2xl text-sm font-semibold transition ${
+                  sessionActive
+                    ? "bg-white/10 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-black hover:bg-gray-100"
+                }`}
+              >
+                Start Session
+              </button>
+              <button
+                onClick={finishSession}
+                disabled={!sessionActive || sessionReps === 0}
+                className={`px-4 py-3 rounded-2xl text-sm font-semibold transition ${
+                  !sessionActive || sessionReps === 0
+                    ? "bg-white/5 text-gray-500 cursor-not-allowed"
+                    : "bg-emerald-500 text-black hover:bg-emerald-400"
+                }`}
+              >
+                Finish
+              </button>
+            </div>
+          </div>
+
+          {isFullscreen && (
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40"></div>
+          )}
+
+          <div
+            className={`rounded-3xl bg-black/30 border border-white/10 p-4 mb-8 transition-all ${
+              isFullscreen
+                ? "fixed inset-0 z-50 bg-black/90 border-white/20 flex flex-col justify-center"
+                : ""
             }`}
           >
-            Start Session
-          </button>
-          <button
-            onClick={finishSession}
-            disabled={!sessionActive || sessionReps === 0}
-            className={`px-4 py-3 rounded-2xl text-sm font-semibold transition ${
-              !sessionActive || sessionReps === 0
-                ? "bg-white/5 text-gray-500 cursor-not-allowed"
-                : "bg-emerald-500 text-black hover:bg-emerald-400"
-            }`}
-          >
-            Finish
-          </button>
-        </div>
-      </div>
-
-      {isFullscreen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40"></div>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-sm text-gray-300">Live camera</span>
+              <button
+                onClick={() => setIsFullscreen((prev) => !prev)}
+                className="text-xs px-3 py-1 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white transition"
+              >
+                {isFullscreen ? "Close" : "Fullscreen"}
+              </button>
+            </div>
+            <div className="flex justify-center">
+              <RepCounter
+                exercise={exercise}
+                reps={sessionReps}
+                onRepChange={handleRepChange}
+                size={isFullscreen ? 520 : 360}
+              />
+            </div>
+          </div>
+        </>
       )}
 
-      <div
-        className={`rounded-3xl bg-black/30 border border-white/10 p-4 mb-8 transition-all ${
-          isFullscreen
-            ? "fixed inset-0 z-50 bg-black/90 border-white/20 flex flex-col justify-center"
-            : ""
-        }`}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm text-gray-300">
-            Live camera
-          </span>
-          <button
-            onClick={() => setIsFullscreen((prev) => !prev)}
-            className="text-xs px-3 py-1 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white transition"
-          >
-            {isFullscreen ? "Close" : "Fullscreen"}
-          </button>
+      <div className="rounded-3xl bg-black/40 border border-white/10 p-5 space-y-4 mt-8">
+        <div>
+          <div className="text-xs uppercase tracking-[0.3em] text-emerald-300">
+            Manual log
+          </div>
+          <p className="text-sm text-gray-400">
+            {manualMode
+              ? "Camera disabled — log sets manually below."
+              : "Use this when you want to save a session without the camera."}
+          </p>
         </div>
-        <div className="flex justify-center">
-          <RepCounter
-            exercise={exercise}
-            reps={sessionReps}
-            onRepChange={handleRepChange}
-            size={isFullscreen ? 520 : 360}
-          />
+        <div className="flex flex-col gap-3">
+          <select
+            value={manualExercise}
+            onChange={(e) => setManualExercise(e.target.value)}
+            className="w-full bg-black/60 border border-white/10 rounded-2xl px-4 py-3 text-white"
+          >
+            {MANUAL_OPTIONS.map((opt) => (
+              <option key={opt.id} value={opt.id}>
+                {opt.label.replace(" (AI)", "")}
+              </option>
+            ))}
+          </select>
+          {manualExercise === "custom" && (
+            <input
+              type="text"
+              placeholder="Custom exercise name"
+              value={manualName}
+              onChange={(e) => setManualName(e.target.value)}
+              className="w-full bg-black/60 border border-white/10 rounded-2xl px-4 py-3 text-white"
+            />
+          )}
+          <div className="grid grid-cols-2 gap-3">
+            <input
+              type="number"
+              min="1"
+              placeholder="Sets"
+              value={manualSets}
+              onChange={(e) => setManualSets(e.target.value)}
+              className="bg-black/60 border border-white/10 rounded-2xl px-4 py-3 text-white"
+            />
+            <input
+              type="number"
+              min="1"
+              placeholder="Reps / set"
+              value={manualRepsPerSet}
+              onChange={(e) => setManualRepsPerSet(e.target.value)}
+              className="bg-black/60 border border-white/10 rounded-2xl px-4 py-3 text-white"
+            />
+          </div>
+          <button
+            onClick={handleManualLog}
+            disabled={manualExercise === "custom" && !manualName.trim()}
+            className={`px-5 py-3 rounded-2xl font-semibold ${
+              manualExercise === "custom" && !manualName.trim()
+                ? "bg-white/10 text-gray-500 cursor-not-allowed"
+                : "bg-emerald-500 text-black"
+            }`}
+          >
+            Log Session
+          </button>
         </div>
       </div>
 
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-5 space-y-5">
+      <div className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-5 space-y-5 mt-6">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs text-gray-400 uppercase">Streak</div>

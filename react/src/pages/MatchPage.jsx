@@ -10,8 +10,10 @@ import {
 import { useUserData } from "../context/UserDataContext.jsx";
 import { useAccountabilityRooms } from "../context/AccountabilityRoomsContext.jsx";
 
+const EMOTION_TAGS = ["Hyped", "Focused", "Calm", "Laser", "Tired"];
+
 export default function MatchPage() {
-  const { user } = useUserData();
+  const { user, logEmotionTag } = useUserData();
   const { addRoom, setActiveRoomId } = useAccountabilityRooms();
 
   // Generate initial pool
@@ -44,6 +46,7 @@ export default function MatchPage() {
             compatibility: likedCompatibility,
             explanation: likedExplanation,
             roomId,
+            emotion: null,
           });
         }
 
@@ -173,14 +176,47 @@ export default function MatchPage() {
               <p className="text-sm text-gray-300 mb-4">
                 {matchSheet.explanation}
               </p>
+              <div className="mb-4">
+                <div className="text-xs uppercase tracking-[0.3em] text-gray-400 mb-2">
+                  How does this match feel?
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {EMOTION_TAGS.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() =>
+                        setMatchSheet((prev) =>
+                          prev ? { ...prev, emotion: tag } : prev
+                        )
+                      }
+                      className={`px-3 py-1 rounded-full text-xs border transition ${
+                        matchSheet.emotion === tag
+                          ? "bg-emerald-500/30 border-emerald-300 text-white"
+                          : "bg-white/5 border-white/10 text-gray-300 hover:text-white"
+                      }`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
-                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 text-black font-semibold flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(16,185,129,0.35)]"
+                className={`w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 text-black font-semibold flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(16,185,129,0.35)] transition ${
+                  matchSheet.emotion ? "" : "opacity-50 cursor-not-allowed"
+                }`}
                 onClick={() => {
                   if (matchSheet.roomId) {
                     setActiveRoomId(matchSheet.roomId);
                   }
+                  if (matchSheet.emotion) {
+                    logEmotionTag({
+                      emotion: matchSheet.emotion,
+                      matchName: matchSheet.name,
+                    });
+                  }
                   setMatchSheet(null);
                 }}
+                disabled={!matchSheet.emotion}
               >
                 ⚡ Start Accountability Chat
               </button>

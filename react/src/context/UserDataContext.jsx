@@ -13,6 +13,12 @@ const STORAGE_KEY = "lockedin:user-state";
 const EXERCISE_METADATA = {
   curl: { muscleGroup: "Arms", energyBias: "strength" },
   squat: { muscleGroup: "Legs", energyBias: "functional" },
+  pushup: { muscleGroup: "Upper Push", energyBias: "bodyweight" },
+  pullup: { muscleGroup: "Upper Pull", energyBias: "calisthenics" },
+  deadlift: { muscleGroup: "Posterior Chain", energyBias: "strength" },
+  bench: { muscleGroup: "Chest", energyBias: "strength" },
+  row: { muscleGroup: "Back", energyBias: "strength" },
+  lunge: { muscleGroup: "Legs", energyBias: "functional" },
 };
 
 const DAY_LABELS = [
@@ -37,6 +43,7 @@ const defaultWeeklySummary = () => ({
   consistencyScore: 0,
   effortLevel: "Warming up",
   slumpDay: "Unknown",
+  dominantEmotion: "Neutral",
   advice: "Finish a tracked session to unlock insights.",
 });
 
@@ -179,8 +186,22 @@ const buildAdvice = ({ slumpDay, effortLevel, peakTrainingTime, favorite }) => {
   return "Aim for one more tracked workout this week to lock the habit.";
 };
 
-const buildWeeklySummary = (sessions) => {
-  if (!sessions.length) return defaultWeeklySummary();
+const buildWeeklySummary = (sessions, emotionLog = []) => {
+  if (!sessions.length) {
+    const base = defaultWeeklySummary();
+    const emotionsCount = {};
+    const now = Date.now();
+    const cutoff = now - 6 * 24 * 60 * 60 * 1000;
+    emotionLog.forEach((entry) => {
+      if (entry.timestamp >= cutoff) {
+        emotionsCount[entry.emotion] = (emotionsCount[entry.emotion] || 0) + 1;
+      }
+    });
+    const dominantEmotion =
+      Object.entries(emotionsCount).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+      "Neutral";
+    return { ...base, dominantEmotion };
+  }
 
   const now = new Date();
   const cutoff = new Date(now);
@@ -240,6 +261,17 @@ const buildWeeklySummary = (sessions) => {
   const weeklySlump = dayCounts.find((entry) => entry.count === 0)?.day;
   const slumpDayLabel = weeklySlump !== undefined ? DAY_LABELS[weeklySlump] : "";
 
+  const emotionCutoff = Date.now() - 6 * 24 * 60 * 60 * 1000;
+  const emotionCounts = {};
+  emotionLog.forEach((entry) => {
+    if (entry.timestamp >= emotionCutoff) {
+      emotionCounts[entry.emotion] = (emotionCounts[entry.emotion] || 0) + 1;
+    }
+  });
+  const dominantEmotion =
+    Object.entries(emotionCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ||
+    "Neutral";
+
   const advice = buildAdvice({
     slumpDay: slumpDayLabel,
     effortLevel,
@@ -254,6 +286,7 @@ const buildWeeklySummary = (sessions) => {
     consistencyScore,
     effortLevel,
     slumpDay: slumpDayLabel || "None",
+    dominantEmotion,
     advice,
   };
 };
@@ -349,6 +382,7 @@ const readStoredState = () => {
       },
       sessions: parsed.sessions || [],
       weeklySummary: parsed.weeklySummary || defaultWeeklySummary(),
+      emotionLog: parsed.emotionLog || [],
     };
   } catch {
     return null;
@@ -365,6 +399,7 @@ export function UserDataProvider({ children }) {
       sessions: [],
       lastWorkoutAt: null,
       weeklySummary: defaultWeeklySummary(),
+      emotionLog: [],
     };
   });
 
@@ -408,7 +443,10 @@ export function UserDataProvider({ children }) {
         sessions,
         prev.embedding?.streakConsistency
       );
-      const weeklySummary = buildWeeklySummary(sessions);
+      const weeklySummary = buildWeeklySummary(
+        sessions,
+        prev.emotionLog || []
+      );
 
       return {
         ...prev,
@@ -423,6 +461,31 @@ export function UserDataProvider({ children }) {
           streakConsistency,
         },
         weeklySummary,
+        emotionLog: [...(prev.emotionLog || [])],
+      };
+    });
+  }, []);
+
+  const logEmotionTag = useCallback((payload) => {
+    const { emotion, matchName } = payload;
+    if (!emotion) return;
+    const timestamp = Date.now();
+
+    setUser((prev) => {
+      const emotionLog = [
+        ...(prev.emotionLog || []),
+        {
+          id: `emotion-${timestamp}`,
+          emotion,
+          matchName,
+          timestamp,
+        },
+      ];
+
+      return {
+        ...prev,
+        emotionLog,
+        weeklySummary: buildWeeklySummary(prev.sessions || [], emotionLog),
       };
     });
   }, []);
@@ -431,13 +494,14 @@ export function UserDataProvider({ children }) {
     () => ({
       user,
       logWorkoutSession,
+      logEmotionTag,
       stats: {
         calendarHeatmap: buildCalendarHeatmap(user.sessions || []),
         intensityTrend: buildIntensityTrend(user.sessions || []),
         muscleSplit: buildMuscleSplit(user.sessions || []),
       },
     }),
-    [user, logWorkoutSession]
+    [user, logWorkoutSession, logEmotionTag]
   );
 
   return (

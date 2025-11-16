@@ -8,7 +8,7 @@ const getLevelClass = (value, maxValue) => {
   return "bg-emerald-500/20 border-emerald-300/30 text-white";
 };
 
-export default function CalendarHeatmap() {
+export default function CalendarHeatmap({ action }) {
   const { stats } = useUserData();
   const data = stats?.calendarHeatmap || [];
   if (!data.length) return null;
@@ -29,7 +29,10 @@ export default function CalendarHeatmap() {
             Last 4 weeks of sessions from the AI rep counter.
           </p>
         </div>
-        <div className="text-xs text-gray-400">Dark = heavy work</div>
+        <div className="text-right text-xs text-gray-400 space-y-1">
+          <div>Dark = heavy work</div>
+          {action}
+        </div>
       </div>
 
       <div className="grid grid-cols-7 gap-1">

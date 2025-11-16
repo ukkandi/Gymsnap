@@ -8,6 +8,7 @@ import Workout from "./pages/Workout";
 import MatchPage from "./pages/MatchPage";
 import Groups from "./pages/Groups";
 import Profile from "./pages/Profile";
+import Streaks from "./pages/Streaks";
 
 export default function App() {
   const location = useLocation();
@@ -23,6 +24,7 @@ export default function App() {
 
   let content;
   if (activeTab === "feed") content = <Feed />;
+  else if (activeTab === "streaks") content = <Streaks />;
   else if (activeTab === "track") content = <Workout />;
   else if (activeTab === "match") content = <MatchPage />;
   else if (activeTab === "groups") content = <Groups />;

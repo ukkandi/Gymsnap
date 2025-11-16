@@ -37,6 +37,15 @@ export default function WeeklySummary() {
         ))}
       </div>
 
+      <div className="mt-4 rounded-2xl border border-white/5 bg-white/5 px-4 py-3">
+        <div className="text-xs uppercase tracking-[0.3em] text-gray-400 mb-1">
+          Mood
+        </div>
+        <div className="text-lg font-semibold">
+          {summary.dominantEmotion || "Neutral"}
+        </div>
+      </div>
+
       <div className="mt-4 p-4 rounded-2xl bg-black/40 border border-white/5 text-sm italic text-gray-200">
         {summary.advice || "Track a workout to unlock weekly coaching."}
       </div>

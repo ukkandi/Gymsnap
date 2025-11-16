@@ -4,6 +4,9 @@ import { Camera } from "@mediapipe/camera_utils";
 export default function runRepCounter(videoElement, repCallback, exercise) {
   let repCount = 0;
 
+  const lerp = (prev, next, factor = 0.2) =>
+    prev === null ? next : prev + (next - prev) * factor;
+
   // Distance helper
   function distance(a, b) {
     return Math.sqrt(
@@ -16,10 +19,12 @@ export default function runRepCounter(videoElement, repCallback, exercise) {
   // SUPER-STABLE CURL DETECTOR (DIRECTION-BASED)
   // =======================================================
 
-  let lastDist = null;
-  let direction = null;       // "up" or "down"
-  let passedMid = false;
-  let repLocked = false;
+  const curlState = {
+    lastDist: null,
+    direction: null,
+    passedMid: false,
+    repLocked: false,
+  };
 
   function countCurl(lm) {
     const shoulder = lm[12];
@@ -27,75 +32,150 @@ export default function runRepCounter(videoElement, repCallback, exercise) {
 
     const dist = distance(shoulder, wrist);
 
-    // Your ranges:
-    const DOWN_THRESHOLD = 0.77;   // fully extended
-    const MID_THRESHOLD  = 0.71;   // halfway
-    const UP_THRESHOLD   = 0.66;   // fully curled
+    const DOWN_THRESHOLD = 0.78;
+    const MID_THRESHOLD = 0.72;
+    const UP_THRESHOLD = 0.66;
 
-    // Setup lastDist
-    if (lastDist === null) {
-      lastDist = dist;
+    if (curlState.lastDist === null) {
+      curlState.lastDist = dist;
       return;
     }
 
-    // Compute movement direction
-    const delta = dist - lastDist;
+    const delta = dist - curlState.lastDist;
 
-    if (delta < -0.01) direction = "up";        // moving upward
-    if (delta >  0.01) direction = "down";      // moving downward
+    if (delta < -0.01) curlState.direction = "up";
+    if (delta > 0.01) curlState.direction = "down";
 
-    // DEBUG
-    // console.log({ dist, delta, direction, passedMid, repLocked });
-
-    // STEP 1: mark when crossing mid during upward motion
-    if (dist < MID_THRESHOLD && direction === "up") {
-      passedMid = true;
+    if (dist < MID_THRESHOLD && curlState.direction === "up") {
+      curlState.passedMid = true;
     }
 
-    // STEP 2: only count rep if:
-    // - we passed mid
-    // - reached top
-    // - and we are moving UP
-    // - and rep isn't locked
     if (
       dist < UP_THRESHOLD &&
-      passedMid &&
-      direction === "up" &&
-      !repLocked
+      curlState.passedMid &&
+      curlState.direction === "up" &&
+      !curlState.repLocked
     ) {
       repCount++;
       repCallback(repCount);
-      repLocked = true;  // block spam
+      curlState.repLocked = true;
     }
 
-    // STEP 3: unlock only after returning to full DOWN
-    if (dist > DOWN_THRESHOLD && direction === "down") {
-      repLocked = false;
-      passedMid = false;
+    if (dist > DOWN_THRESHOLD && curlState.direction === "down") {
+      curlState.repLocked = false;
+      curlState.passedMid = false;
     }
 
-    lastDist = dist;
+    curlState.lastDist = dist;
   }
 
   // =======================================================
   // SIMPLE SQUAT DETECTOR (same as before)
   // =======================================================
-  let squatDown = false;
+  const squatState = {
+    down: false,
+    filteredDist: null,
+  };
 
   function countSquat(lm) {
     const hip = lm[24];
     const ankle = lm[28];
 
     const dist = distance(hip, ankle);
+    squatState.filteredDist = lerp(squatState.filteredDist, dist, 0.3);
 
-    if (dist < 0.33) squatDown = true;
+    const value = squatState.filteredDist ?? dist;
 
-    if (dist > 0.50 && squatDown) {
+    if (value < 0.34) squatState.down = true;
+
+    if (value > 0.53 && squatState.down) {
       repCount++;
       repCallback(repCount);
-      squatDown = false;
+      squatState.down = false;
     }
   }
+
+  // =======================================================
+  // PUSH-UP / BENCH PRESS STYLE DETECTOR
+  // =======================================================
+  const pushState = {
+    low: false,
+    filteredTorso: null,
+  };
+
+  function countPushPress(lm) {
+    const shoulderR = lm[12];
+    const shoulderL = lm[11];
+    const hipR = lm[24];
+    const hipL = lm[23];
+    const avgY = (shoulderR.y + shoulderL.y + hipR.y + hipL.y) / 4;
+
+    pushState.filteredTorso = lerp(pushState.filteredTorso, avgY, 0.25);
+    const value = pushState.filteredTorso ?? avgY;
+
+    if (value > 0.68) pushState.low = true;
+
+    if (value < 0.5 && pushState.low) {
+      repCount++;
+      repCallback(repCount);
+      pushState.low = false;
+    }
+  }
+
+  // =======================================================
+  // PULL-UP / ROW STYLE DETECTOR
+  // =======================================================
+  const pullState = {
+    low: false,
+    filteredHand: null,
+  };
+
+  function countPull(lm) {
+    const wrist = lm[16];
+    pullState.filteredHand = lerp(pullState.filteredHand, wrist.y, 0.2);
+    const value = pullState.filteredHand ?? wrist.y;
+
+    if (value > 0.62) pullState.low = true;
+
+    if (value < 0.38 && pullState.low) {
+      repCount++;
+      repCallback(repCount);
+      pullState.low = false;
+    }
+  }
+
+  // =======================================================
+  // DEADLIFT / HINGE DETECTOR
+  // =======================================================
+  const hingeState = {
+    low: false,
+    filteredHip: null,
+  };
+
+  function countHipHinge(lm) {
+    const hip = lm[24];
+    hingeState.filteredHip = lerp(hingeState.filteredHip, hip.y, 0.2);
+    const value = hingeState.filteredHip ?? hip.y;
+
+    if (value > 0.68) hingeState.low = true;
+
+    if (value < 0.52 && hingeState.low) {
+      repCount++;
+      repCallback(repCount);
+      hingeState.low = false;
+    }
+  }
+
+  const detectors = {
+    curl: countCurl,
+    squat: countSquat,
+    lunge: countSquat,
+    pushup: countPushPress,
+    bench: countPushPress,
+    pullup: countPull,
+    row: countPull,
+    deadlift: countHipHinge,
+  };
 
   // =======================================================
   // MEDIAPIPE SETUP
@@ -117,8 +197,8 @@ export default function runRepCounter(videoElement, repCallback, exercise) {
 
     const lm = results.poseLandmarks;
 
-    if (exercise === "curl") countCurl(lm);
-    if (exercise === "squat") countSquat(lm);
+    const handler = detectors[exercise];
+    if (handler) handler(lm);
   });
 
   const camera = new Camera(videoElement, {
@@ -130,4 +210,8 @@ export default function runRepCounter(videoElement, repCallback, exercise) {
   });
 
   camera.start();
+
+  return () => {
+    camera.stop();
+  };
 }
