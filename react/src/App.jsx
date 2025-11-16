@@ -4,6 +4,7 @@ import BottomNav from "./components/BottomNav";
 
 // Pages
 import Feed from "./pages/Feed";
+import Workout from "./pages/Workout";
 import MatchPage from "./pages/MatchPage";
 import Groups from "./pages/Groups";
 import Profile from "./pages/Profile";
@@ -22,6 +23,7 @@ export default function App() {
 
   let content;
   if (activeTab === "feed") content = <Feed />;
+  else if (activeTab === "track") content = <Workout />;
   else if (activeTab === "match") content = <MatchPage />;
   else if (activeTab === "groups") content = <Groups />;
   else content = <Profile />;

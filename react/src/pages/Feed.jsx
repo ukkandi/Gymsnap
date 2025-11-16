@@ -1,4 +1,5 @@
 import { useState } from "react";
+import WeeklySummary from "../components/WeeklySummary.jsx";
 
 export default function Feed() {
   // mock gym posts (later replaced with real db)
@@ -31,6 +32,8 @@ export default function Feed() {
 
   return (
     <div className="pt-4 pb-24">
+      <WeeklySummary />
+
       {posts.map(post => (
         <div
           key={post.id}
