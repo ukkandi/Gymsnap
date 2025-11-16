@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import BottomNav from "./components/BottomNav";
 
 // Pages
@@ -8,7 +9,16 @@ import Groups from "./pages/Groups";
 import Profile from "./pages/Profile";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState("feed");
+  const location = useLocation();
+
+  // If we come from a navigation with state.tab, use it; otherwise default to "feed"
+  const [activeTab, setActiveTab] = useState(location.state?.tab || "feed");
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActiveTab(location.state.tab);
+    }
+  }, [location.state]);
 
   let content;
   if (activeTab === "feed") content = <Feed />;
@@ -19,7 +29,7 @@ export default function App() {
   return (
     <div className="w-full min-h-screen bg-gradient-to-b from-black via-zinc-950 to-black text-white">
       <div className="max-w-md mx-auto relative">
-        
+
         {/* HEADER */}
         <header className="pt-6 px-4 flex items-center justify-between">
           <div>
