@@ -3,13 +3,60 @@ import { useState } from "react";
 export default function Streak() {
   const [streak, setStreak] = useState(7); // demo streak count
   const [checkedIn, setCheckedIn] = useState(false);
+  const [workoutDays, setWorkoutDays] = useState([]);
 
+  useEffect(() => {
+    const savedStreak = localStorage.getItem("streakCount");
+    const savedCheckIn = localStorage.getItem("checkedIn");
+    const savedDays = JSON.parse(localstorage.getItem("workoutDay")) || [];
+    if (savedStreak) setStreak(parseInt(savedStreak));
+    if (savedCheckIn === "true) setCheckedIn(true);
+    setWorkoutDays(savedDays);
+    if (savedDays.length > 0) {
+      const lastDay = new Date(savedDays[savedDays.length - 1]);
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (lastDay.toDateString() !== yesterday.toDateString() && lastday.toDateString() !== new Date(). toDateString())
+        setStreak(0);
+    }
+  }
+            }, []);
+  useEffect(() => {
+localStorage.setItem("streakCount", streak);
+localStorage.setItem("checkedIn", checkedIn);
+localStorage.setItem("workoutDays", JSON.stringify(workoutDays));
+}, [streak, checkedIn, workoutDays]);
+  
   function handleCheckIn() {
     if (checkedIn) return;
-
+    const today = new Date();
+const todayStr = `${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+setCheckedIn(true);
+setStreak(streak + 1);
+setWorkoutDays([...workoutDays, todayStr]);
+}
     setCheckedIn(true);
     setStreak(streak + 1);
   }
+const renderCalendar = () => {
+const currentMonth = new Date();
+const startDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1).getDay();
+const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate();
+const cells = [];
+
+
+for (let i = 0; i < startDay; i++) cells.push(<div key={`empty-${i}`} className="day empty"></div>);
+
+
+for (let day = 1; day <= daysInMonth; day++) {
+const dateStr = `${currentMonth.getFullYear()}-${currentMonth.getMonth() + 1}-${day}`;
+const isWorkout = workoutDays.includes(dateStr);
+cells.push(<div key={day} className={`day ${isWorkout ? 'workout' : ''}`}>{day}</div>);
+}
+return cells;
+};
+
+
 
   return (
     <div className="w-full min-h-screen bg-black text-white flex flex-col items-center justify-center relative">
