@@ -258,6 +258,82 @@ const buildWeeklySummary = (sessions) => {
   };
 };
 
+const buildCalendarHeatmap = (sessions, days = 28) => {
+  const values = sessions.reduce((acc, session) => {
+    const key = toDayKey(session.endedAt);
+    acc[key] = (acc[key] || 0) + estimateSetsFromReps(session.reps);
+    return acc;
+  }, {});
+
+  const result = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const key = toDayKey(date);
+    result.push({
+      key,
+      date: date.toISOString(),
+      value: values[key] || 0,
+    });
+  }
+
+  return result;
+};
+
+const buildIntensityTrend = (sessions, days = 7) => {
+  const dayMap = sessions.reduce((acc, session) => {
+    const key = toDayKey(session.endedAt);
+    const intensity = calcSessionIntensity(session);
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(intensity);
+    return acc;
+  }, {});
+
+  const result = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const key = toDayKey(date);
+    const bucket = dayMap[key] || [];
+    const avg =
+      bucket.length === 0
+        ? 0
+        : bucket.reduce((sum, value) => sum + value, 0) / bucket.length;
+    result.push({
+      key,
+      label: DAY_LABELS[date.getDay()].slice(0, 3),
+      value: Number(avg.toFixed(2)),
+    });
+  }
+
+  return result;
+};
+
+const buildMuscleSplit = (sessions) => {
+  if (!sessions.length) {
+    return [
+      { label: "Arms", value: 0 },
+      { label: "Legs", value: 0 },
+      { label: "Full Body", value: 0 },
+    ];
+  }
+
+  const counts = sessions.reduce((acc, session) => {
+    const meta = EXERCISE_METADATA[session.exercise];
+    const label = meta?.muscleGroup || "Full Body";
+    acc[label] = (acc[label] || 0) + estimateSetsFromReps(session.reps);
+    return acc;
+  }, {});
+
+  const total = Object.values(counts).reduce((sum, value) => sum + value, 0) || 1;
+
+  return Object.entries(counts).map(([label, value]) => ({
+    label,
+    value,
+    percent: Math.round((value / total) * 100),
+  }));
+};
+
 const readStoredState = () => {
   if (typeof window === "undefined") return null;
   try {
@@ -355,6 +431,11 @@ export function UserDataProvider({ children }) {
     () => ({
       user,
       logWorkoutSession,
+      stats: {
+        calendarHeatmap: buildCalendarHeatmap(user.sessions || []),
+        intensityTrend: buildIntensityTrend(user.sessions || []),
+        muscleSplit: buildMuscleSplit(user.sessions || []),
+      },
     }),
     [user, logWorkoutSession]
   );

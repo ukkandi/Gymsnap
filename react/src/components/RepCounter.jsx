@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import runRepCounter from "../repCounter";
 
-export default function RepCounter({ exercise, reps, onRepChange }) {
+export default function RepCounter({ exercise, reps, onRepChange, size = 400 }) {
   const videoRef = useRef(null);
 
   useEffect(() => {
@@ -14,15 +14,16 @@ export default function RepCounter({ exercise, reps, onRepChange }) {
     );
   }, [exercise]);
 
+  const dimension = `${size}px`;
+
   return (
     <div
       style={{
         position: "relative",
-        width: "400px",
-        height: "400px",
+        width: dimension,
+        height: dimension,
       }}
     >
-
       {/* HUD Overlay */}
       <div
         style={{
@@ -54,8 +55,8 @@ export default function RepCounter({ exercise, reps, onRepChange }) {
         ref={videoRef}
         autoPlay
         playsInline
-        width="400"
-        height="400"
+        width={size}
+        height={size}
         style={{
           position: "absolute",
           left: 0,

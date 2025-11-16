@@ -18,6 +18,7 @@ export default function Workout() {
   const [sessionReps, setSessionReps] = useState(0);
   const [sessionStart, setSessionStart] = useState(null);
   const [status, setStatus] = useState("idle");
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const absoluteRepsRef = useRef(0);
   const baselineRef = useRef(0);
@@ -123,12 +124,36 @@ export default function Workout() {
         </div>
       </div>
 
-      <div className="rounded-3xl bg-black/30 border border-white/10 p-4 mb-8">
-        <RepCounter
-          exercise={exercise}
-          reps={sessionReps}
-          onRepChange={handleRepChange}
-        />
+      {isFullscreen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40"></div>
+      )}
+
+      <div
+        className={`rounded-3xl bg-black/30 border border-white/10 p-4 mb-8 transition-all ${
+          isFullscreen
+            ? "fixed inset-0 z-50 bg-black/90 border-white/20 flex flex-col justify-center"
+            : ""
+        }`}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-sm text-gray-300">
+            Live camera
+          </span>
+          <button
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            className="text-xs px-3 py-1 rounded-full border border-white/20 text-white/80 hover:text-white hover:border-white transition"
+          >
+            {isFullscreen ? "Close" : "Fullscreen"}
+          </button>
+        </div>
+        <div className="flex justify-center">
+          <RepCounter
+            exercise={exercise}
+            reps={sessionReps}
+            onRepChange={handleRepChange}
+            size={isFullscreen ? 520 : 360}
+          />
+        </div>
       </div>
 
       <div className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-5 space-y-5">

@@ -8,9 +8,11 @@ import {
   describeCompatibility,
 } from "../Utils/compatibility";
 import { useUserData } from "../context/UserDataContext.jsx";
+import { useAccountabilityRooms } from "../context/AccountabilityRoomsContext.jsx";
 
 export default function MatchPage() {
   const { user } = useUserData();
+  const { addRoom, setActiveRoomId } = useAccountabilityRooms();
 
   // Generate initial pool
   const [matches, setMatches] = useState(() =>
@@ -18,19 +20,32 @@ export default function MatchPage() {
   );
 
   const [index, setIndex] = useState(0);
+  const [matchSheet, setMatchSheet] = useState(null);
 
   const activePerson = matches[index];
 
   const x = useMotionValue(0);
   const rotate = useTransform(x, [-200, 200], [-20, 20]);
 
-  const swipe = (direction) => {
+  const swipe = (direction, likedPerson, likedCompatibility, likedExplanation) => {
     const to = direction === "left" ? -500 : 500;
+    const targetPerson = likedPerson || activePerson;
+    setMatchSheet(null);
 
     animate(x, to, {
       duration: 0.25,
       onComplete: () => {
         x.set(0);
+
+        if (direction === "right" && targetPerson) {
+          const roomId = addRoom(targetPerson, likedCompatibility, likedExplanation);
+          setMatchSheet({
+            name: targetPerson.name,
+            compatibility: likedCompatibility,
+            explanation: likedExplanation,
+            roomId,
+          });
+        }
 
         setIndex((prev) => {
           const next = prev + 1;
@@ -47,7 +62,8 @@ export default function MatchPage() {
   };
 
   const handleDragEnd = (_, info) => {
-    if (info.offset.x > 120) swipe("right");
+    if (info.offset.x > 120)
+      swipe("right", activePerson, compatibility, compatibilityExplanation);
     else if (info.offset.x < -120) swipe("left");
     else animate(x, 0, { type: "spring", stiffness: 300 });
   };
@@ -128,13 +144,50 @@ export default function MatchPage() {
             </button>
             <button
               className="w-14 h-14 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 text-xl backdrop-blur-xl"
-              onClick={() => swipe("right")}
+              onClick={() =>
+                swipe("right", activePerson, compatibility, compatibilityExplanation)
+              }
             >
               ❤️
             </button>
           </div>
         </div>
       </motion.div>
+
+      {matchSheet && (
+        <div className="fixed inset-0 z-30 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-200 opacity-100 pointer-events-none"></div>
+          <div className="relative w-full max-w-md px-4 pb-6">
+            <div className="rounded-3xl bg-zinc-900/80 border border-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.8)] p-5">
+              <div className="flex items-center justify-between mb-2">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.2em] text-emerald-300">
+                    Compatibility
+                  </div>
+                  <div className="text-2xl font-semibold">
+                    {matchSheet.compatibility}% Match
+                  </div>
+                </div>
+                <span className="text-sm text-gray-400">AI insight</span>
+              </div>
+              <p className="text-sm text-gray-300 mb-4">
+                {matchSheet.explanation}
+              </p>
+              <button
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-400 via-green-500 to-teal-500 text-black font-semibold flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(16,185,129,0.35)]"
+                onClick={() => {
+                  if (matchSheet.roomId) {
+                    setActiveRoomId(matchSheet.roomId);
+                  }
+                  setMatchSheet(null);
+                }}
+              >
+                ⚡ Start Accountability Chat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

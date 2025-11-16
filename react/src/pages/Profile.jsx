@@ -1,291 +1,155 @@
-import { useState } from "react";
-import { currentUser } from "../data/mockGymbros";
+import { useMemo } from "react";
+import { useUserData } from "../context/UserDataContext.jsx";
+import CalendarHeatmap from "../components/CalendarHeatmap.jsx";
+import IntensityGraph from "../components/IntensityGraph.jsx";
+import MuscleSplitChart from "../components/MuscleSplitChart.jsx";
+
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const describeWindow = (minutes = 0) => {
+  const hour = minutes / 60;
+  if (hour >= 21 || hour < 4) return "Late night";
+  if (hour >= 17) return "Evening";
+  if (hour >= 12) return "Afternoon";
+  if (hour >= 9) return "Late morning";
+  if (hour >= 5) return "Early morning";
+  return "Overnight";
+};
+
+const formatMinutesToTime = (minutes = 0) => {
+  const hrs = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const suffix = hrs >= 12 ? "PM" : "AM";
+  const displayHour = ((hrs + 11) % 12) + 1;
+  return `${displayHour}:${mins.toString().padStart(2, "0")} ${suffix}`;
+};
+
+const buildIdentity = (embedding = {}) => {
+  const minutes = embedding.avgCheckInTime ?? 0;
+  const intensity = embedding.trainingIntensity ?? 0.5;
+  const energy = embedding.energyType || "mix";
+
+  if (energy === "strength" && minutes >= 20 * 60) return "Night Grinder";
+  if (energy === "strength" && intensity > 0.75) return "Strength Demon";
+  if (energy === "cardio" && minutes < 8 * 60) return "Dawn Sprinter";
+  if (energy === "calisthenics" && intensity < 0.6) return "Quiet Operator";
+  if (energy === "functional") return "Chaos Engine";
+  if (energy === "mix" && minutes >= 18 * 60) return "Wildcard Lifter";
+  return "Locked-In Hybrid";
+};
 
 export default function Profile() {
-  const [isEditing, setIsEditing] = useState(false);
+  const { user } = useUserData();
+  const embedding = user.embedding || {};
 
-  // full structured state
-  const [extra, setExtra] = useState(
-    currentUser.extra || {
-      experience: "Beginner",
-      favLift: "",
-      goal: "Maintain",
-      bio: "",
-      goals: [...currentUser.goals],
-      schedule: [...currentUser.schedule],
-      newGoal: "",
-      newDay: "",
-    }
+  const trainingIdentity = useMemo(
+    () => buildIdentity(embedding),
+    [embedding]
   );
-
-  // Save function
-  const save = () => {
-    currentUser.extra = { ...extra };
-    // clean temporary inputs
-    delete currentUser.extra.newGoal;
-    delete currentUser.extra.newDay;
-    setIsEditing(false);
-  };
-
-  // Handlers for Goals and Schedule
-  const addGoal = () => {
-    if (extra.newGoal.trim() && !extra.goals.includes(extra.newGoal.trim())) {
-      setExtra({ ...extra, goals: [...extra.goals, extra.newGoal.trim()], newGoal: "" });
-    }
-  };
-
-  const removeGoal = (goal) => {
-    setExtra({ ...extra, goals: extra.goals.filter(g => g !== goal) });
-  };
-
-  const addDay = () => {
-    const day = extra.newDay.trim();
-    if (day && !extra.schedule.includes(day)) {
-      setExtra({ ...extra, schedule: [...extra.schedule, day], newDay: "" });
-    }
-  };
-
-  const removeDay = (day) => {
-    setExtra({ ...extra, schedule: extra.schedule.filter(d => d !== day) });
-  };
+  const intensityPercent = Math.round((embedding.trainingIntensity ?? 0.5) * 100);
+  const energyScore = Math.round(
+    ((embedding.trainingIntensity ?? 0.5) + (embedding.streakConsistency ?? 0.5)) /
+      2 *
+      100
+  );
+  const slumpDays =
+    (embedding.slumpDays || []).length > 0
+      ? embedding.slumpDays.map((day) => DAY_LABELS[day]).join(" · ")
+      : "None";
+  const preferredWindow = describeWindow(embedding.avgCheckInTime ?? 0);
+  const preferredTime = formatMinutesToTime(embedding.avgCheckInTime ?? 0);
 
   return (
-    <div className="pt-20 pb-24 px-4 max-w-md mx-auto">
-      {/* Header */}
-      <div className="flex items-center space-x-4 mb-6">
-        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-blue-500 shadow-lg" />
+    <div className="pt-16 pb-24 px-4 text-white max-w-md mx-auto space-y-6">
+      <div className="rounded-3xl bg-gradient-to-br from-emerald-500/30 via-black to-black border border-white/10 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm uppercase tracking-wide text-emerald-300">
+              Gym personality
+            </div>
+            <h1 className="text-3xl font-bold mt-1">{user.name || "You"}</h1>
+            <p className="text-gray-400 text-sm mt-1">
+              {trainingIdentity} · {user.streak || 0} day streak
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-xs uppercase text-gray-400">Energy score</div>
+            <div className="text-3xl font-bold">{energyScore}%</div>
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <div className="flex items-center justify-between text-sm">
+            <span className="uppercase tracking-wide text-gray-400">
+              Intensity
+            </span>
+            <span className="font-semibold">{intensityPercent}%</span>
+          </div>
+          <div className="w-full h-3 bg-white/10 rounded-full mt-2 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-green-400 to-yellow-300"
+              style={{ width: `${intensityPercent}%` }}
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="rounded-3xl bg-black/40 border border-white/10 p-5 space-y-4">
         <div>
-          <div className="text-xl font-semibold">{currentUser.name}</div>
-          <div className="text-xs text-gray-400">{currentUser.gymPersonality}</div>
-        </div>
-      </div>
-
-      {/* Vibe */}
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-4 mb-4">
-        <div className="text-xs text-gray-400 uppercase mb-1">Vibe summary</div>
-        <div className="text-sm text-gray-200">
-          {currentUser.vibe.join(" · ")}
-        </div>
-      </div>
-
-      {/* Goals */}
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-4 mb-4">
-        <div className="text-xs text-gray-400 uppercase mb-2">Goals</div>
-        <div className="flex flex-wrap gap-2">
-          {currentUser.goals.map(g => (
-            <span
-              key={g}
-              className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-100"
-            >
-              {g}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Schedule + Edit */}
-      <div className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-4">
-        <div className="text-xs text-gray-400 uppercase mb-2">Schedule</div>
-        <div className="flex flex-wrap gap-2 mb-3">
-          {currentUser.schedule.map(d => (
-            <span
-              key={d}
-              className="text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-100"
-            >
-              {d}
-            </span>
-          ))}
+          <div className="text-xs uppercase text-gray-400 tracking-wide">
+            Preferred training window
+          </div>
+          <p className="text-lg font-semibold">
+            {preferredWindow} · {preferredTime}
+          </p>
         </div>
 
-        {isEditing ? (
-          <div className="space-y-3 mt-3">
-            {/* Experience */}
-            <div>
-              <label className="text-xs text-gray-400">Experience Level</label>
-              <select
-                className="w-full bg-zinc-800 border border-white/10 rounded-xl p-2 text-sm text-gray-100"
-                value={extra.experience}
-                onChange={(e) =>
-                  setExtra({ ...extra, experience: e.target.value })
-                }
-              >
-                <option>Beginner</option>
-                <option>Intermediate</option>
-                <option>Advanced</option>
-              </select>
-            </div>
+        <div>
+          <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">
+            Slump days
+          </div>
+          <p className="text-lg font-semibold">{slumpDays}</p>
+        </div>
 
-            {/* Favorite Lift */}
-            <div>
-              <label className="text-xs text-gray-400">Favorite Lift</label>
-              <input
-                type="text"
-                className="w-full bg-zinc-800 border border-white/10 rounded-xl p-2 text-sm text-gray-100"
-                placeholder="Bench, Squat, Deadlift..."
-                value={extra.favLift}
-                onChange={(e) =>
-                  setExtra({ ...extra, favLift: e.target.value })
-                }
-              />
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <div className="text-[11px] uppercase tracking-wide text-gray-400">
+              Energy type
             </div>
-
-            {/* Main Goal */}
-            <div>
-              <label className="text-xs text-gray-400">Main Goal</label>
-              <select
-                className="w-full bg-zinc-800 border border-white/10 rounded-xl p-2 text-sm text-gray-100"
-                value={extra.goal}
-                onChange={(e) =>
-                  setExtra({ ...extra, goal: e.target.value })
-                }
-              >
-                <option>Bulk</option>
-                <option>Cut</option>
-                <option>Maintain</option>
-                <option>Strength</option>
-                <option>Endurance</option>
-              </select>
-            </div>
-
-            {/* Bio */}
-            <div>
-              <label className="text-xs text-gray-400">Short Bio</label>
-              <textarea
-                rows={2}
-                className="w-full bg-zinc-800 border border-white/10 rounded-xl p-2 text-sm text-gray-100"
-                placeholder="Tell us something short..."
-                value={extra.bio}
-                onChange={(e) =>
-                  setExtra({ ...extra, bio: e.target.value })
-                }
-              />
-            </div>
-
-            {/* Goals Editor */}
-            <div>
-              <label className="text-xs text-gray-400">Goals</label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {extra.goals.map(g => (
-                  <span
-                    key={g}
-                    className="flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-100"
-                  >
-                    {g}
-                    <button
-                      onClick={() => removeGoal(g)}
-                      className="text-red-400 hover:text-red-500"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2 mt-1">
-                <input
-                  type="text"
-                  className="flex-1 bg-zinc-800 border border-white/10 rounded-xl p-2 text-sm text-gray-100"
-                  placeholder="Add goal..."
-                  value={extra.newGoal}
-                  onChange={(e) => setExtra({ ...extra, newGoal: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && addGoal()}
-                />
-                <button
-                  onClick={addGoal}
-                  className="px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black text-xs"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Schedule Editor */}
-            <div>
-              <label className="text-xs text-gray-400">Schedule</label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {extra.schedule.map(d => (
-                  <span
-                    key={d}
-                    className="flex items-center gap-1 text-xs px-3 py-1 rounded-full bg-white/5 border border-white/10 text-gray-100"
-                  >
-                    {d}
-                    <button
-                      onClick={() => removeDay(d)}
-                      className="text-red-400 hover:text-red-500"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-              </div>
-              <div className="flex gap-2 mt-1">
-                <input
-                  type="text"
-                  className="flex-1 bg-zinc-800 border border-white/10 rounded-xl p-2 text-sm text-gray-100"
-                  placeholder="Add day..."
-                  value={extra.newDay}
-                  onChange={(e) => setExtra({ ...extra, newDay: e.target.value })}
-                  onKeyDown={(e) => e.key === "Enter" && addDay()}
-                />
-                <button
-                  onClick={addDay}
-                  className="px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black text-xs"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-
-            {/* Save & Cancel */}
-            <div className="flex gap-2 pt-2">
-              <button
-                onClick={save}
-                className="text-xs px-3 py-1 rounded-full bg-emerald-500 hover:bg-emerald-600 text-black"
-              >
-                Save
-              </button>
-              <button
-                onClick={() => setIsEditing(false)}
-                className="text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
-              >
-                Cancel
-              </button>
+            <div className="text-lg font-semibold capitalize mt-1">
+              {embedding.energyType || "mix"}
             </div>
           </div>
-        ) : (
-          <>
-            {/* Display saved extra info */}
-            {currentUser.extra && (
-              <div className="text-sm text-gray-300 space-y-1 mb-3">
-                <div>
-                  <span className="text-gray-400">Experience:</span> {currentUser.extra.experience}
-                </div>
-                <div>
-                  <span className="text-gray-400">Favorite Lift:</span> {currentUser.extra.favLift}
-                </div>
-                <div>
-                  <span className="text-gray-400">Goal:</span> {currentUser.extra.goal}
-                </div>
-                <div>
-                  <span className="text-gray-400">Bio:</span> {currentUser.extra.bio}
-                </div>
-                <div>
-                  <span className="text-gray-400">Goals:</span> {currentUser.extra.goals.join(", ")}
-                </div>
-                <div>
-                  <span className="text-gray-400">Schedule:</span> {currentUser.extra.schedule.join(", ")}
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={() => setIsEditing(true)}
-              className="text-xs px-3 py-1 rounded-full bg-white/10 hover:bg-white/20"
-            >
-              Edit profile
-            </button>
-          </>
-        )}
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10">
+            <div className="text-[11px] uppercase tracking-wide text-gray-400">
+              Streak consistency
+            </div>
+            <div className="text-lg font-semibold mt-1">
+              {Math.round((embedding.streakConsistency ?? 0.5) * 100)}%
+            </div>
+          </div>
+        </div>
       </div>
+
+      <div className="rounded-3xl bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-5">
+        <div className="text-xs uppercase text-gray-400 tracking-[0.3em]">
+          Behavior log
+        </div>
+        <p className="text-lg text-gray-300 mt-2">
+          Lock in {preferredWindow.toLowerCase()} sessions. Your vibe is{" "}
+          <span className="text-white font-semibold">{trainingIdentity}</span> —
+          keep the streak alive by protecting {slumpDays.includes("None") ? "your open days" : slumpDays}.
+        </p>
+
+        <div className="mt-4 text-sm text-gray-400">
+          Last updated from live rep tracking — every logged set makes this
+          profile smarter.
+        </div>
+      </div>
+
+      <CalendarHeatmap />
+      <IntensityGraph />
+      <MuscleSplitChart />
     </div>
   );
 }
