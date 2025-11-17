@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useUserData } from "../context/UserDataContext.jsx";
 import CalendarHeatmap from "../components/CalendarHeatmap.jsx";
+import IntensityGraph from "../components/IntensityGraph.jsx";
+import MuscleSplitChart from "../components/MuscleSplitChart.jsx";
 
 const formatDate = (value) => {
   const date = new Date(value);
@@ -56,55 +58,103 @@ export default function Streaks() {
     setTimeout(() => setLogging(false), 400);
   };
 
+  const STREAK_GOAL = 21;
+  const streakValue = user.streak || 0;
+  const streakProgress = Math.min(streakValue / STREAK_GOAL, 1);
+  const radius = 58;
+  const circumference = 2 * Math.PI * radius;
+  const dashArray = `${circumference} ${circumference}`;
+  const dashOffset = circumference * (1 - streakProgress);
+
   return (
     <div className="pt-16 pb-24 px-4 text-white max-w-md mx-auto space-y-6">
-      <section className="rounded-3xl bg-gradient-to-br from-emerald-500/20 via-black/80 to-black border border-white/10 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)]">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex-1 min-w-[180px]">
+      <section className="rounded-3xl bg-gradient-to-br from-emerald-500/20 via-black/80 to-black border border-white/10 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.6)] space-y-6">
+        <div className="flex items-center gap-6 flex-wrap">
+          <div className="relative w-[150px] h-[150px]">
+            <svg viewBox="0 0 150 150" className="w-full h-full rotate-[135deg]">
+              <circle
+                cx="75"
+                cy="75"
+                r={radius}
+                stroke="rgba(255,255,255,0.08)"
+                strokeWidth="12"
+                fill="none"
+              />
+              <circle
+                cx="75"
+                cy="75"
+                r={radius}
+                stroke="url(#streakGradient)"
+                strokeWidth="12"
+                strokeLinecap="round"
+                fill="none"
+                strokeDasharray={dashArray}
+                strokeDashoffset={dashOffset}
+              />
+              <defs>
+                <linearGradient id="streakGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#34d399" />
+                  <stop offset="100%" stopColor="#a7f3d0" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+              <div className="text-sm uppercase tracking-[0.3em] text-emerald-300">
+                Streak
+              </div>
+              <div className="text-4xl font-bold">{streakValue}</div>
+              <div className="text-[11px] text-gray-400">
+                Goal {STREAK_GOAL} days
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 min-w-[200px]">
             <div className="text-xs uppercase tracking-[0.3em] text-emerald-300">
-              Current streak
+              Behavior snapshot
             </div>
-            <div className="text-5xl font-bold mt-2">
-              {user.streak || 0}
-            </div>
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="text-2xl font-semibold mt-2">
               Avg check-in {formatTime(user.embedding?.avgCheckInTime ?? 0)}
             </p>
+            <p className="text-sm text-gray-400 mt-1">
+              Ring fills from live rep tracking and manual logs.
+            </p>
           </div>
-          <div className="flex flex-col gap-2 min-w-[200px]">
-            <div className="flex gap-2">
-              <select
-                value={quickExercise}
-                onChange={(e) => setQuickExercise(e.target.value)}
-                className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-3 py-2 text-sm text-white"
-              >
-                {exerciseOptions.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min="1"
-                value={quickReps}
-                onChange={(e) => setQuickReps(e.target.value)}
-                className="w-24 bg-black/60 border border-white/10 rounded-2xl px-3 py-2 text-sm text-white"
-                placeholder="Reps"
-              />
-            </div>
-            <button
-              onClick={handleQuickCheckIn}
-              disabled={logging}
-              className={`px-5 py-3 rounded-2xl text-sm font-semibold border border-emerald-400/60 ${
-                logging
-                  ? "text-emerald-200 cursor-not-allowed"
-                  : "text-black bg-emerald-400 hover:bg-emerald-300"
-              }`}
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <select
+              value={quickExercise}
+              onChange={(e) => setQuickExercise(e.target.value)}
+              className="flex-1 bg-black/60 border border-white/10 rounded-2xl px-3 py-2 text-sm text-white"
             >
-              {logging ? "Checked In" : "Quick Check-In"}
-            </button>
+              {exerciseOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min="1"
+              value={quickReps}
+              onChange={(e) => setQuickReps(e.target.value)}
+              className="w-24 bg-black/60 border border-white/10 rounded-2xl px-3 py-2 text-sm text-white"
+              placeholder="Reps"
+            />
           </div>
+          <button
+            onClick={handleQuickCheckIn}
+            disabled={logging}
+            className={`px-5 py-3 rounded-2xl text-sm font-semibold border border-emerald-400/60 ${
+              logging
+                ? "text-emerald-200 cursor-not-allowed"
+                : "text-black bg-emerald-400 hover:bg-emerald-300"
+            }`}
+          >
+            {logging ? "Checked In" : "Quick Check-In"}
+          </button>
         </div>
 
         <div className="grid grid-cols-3 gap-4 text-sm text-gray-300 mt-6">
@@ -150,6 +200,9 @@ export default function Streaks() {
           </Link>
         }
       />
+
+      <IntensityGraph />
+      <MuscleSplitChart />
 
       <section className="rounded-3xl bg-black/40 border border-white/10 p-5">
         <div className="flex items-center justify-between mb-3">

@@ -3,20 +3,31 @@ import runRepCounter from "../repCounter";
 
 export default function RepCounter({ exercise, reps, onRepChange, size = 400 }) {
   const videoRef = useRef(null);
+  const repCallbackRef = useRef(onRepChange);
+
+  useEffect(() => {
+    repCallbackRef.current = onRepChange;
+  }, [onRepChange]);
 
   useEffect(() => {
     if (!videoRef.current) return;
 
+    const videoEl = videoRef.current;
+    videoEl.setAttribute("playsinline", "true");
+    videoEl.setAttribute("muted", "true");
+    videoEl.muted = true;
+    videoEl.autoplay = true;
+
     const stop = runRepCounter(
-      videoRef.current,
-      (newRep) => onRepChange(newRep),
+      videoEl,
+      (newRep) => repCallbackRef.current?.(newRep),
       exercise
     );
 
     return () => {
       if (typeof stop === "function") stop();
     };
-  }, [exercise, onRepChange]);
+  }, [exercise]);
 
   const dimension = `${size}px`;
 
@@ -59,6 +70,7 @@ export default function RepCounter({ exercise, reps, onRepChange, size = 400 }) 
         ref={videoRef}
         autoPlay
         playsInline
+        muted
         width={size}
         height={size}
         style={{

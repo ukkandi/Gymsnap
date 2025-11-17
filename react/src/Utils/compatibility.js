@@ -1,134 +1,181 @@
-// src/Utils/compatibility.js
+// src/utils/compatibility.js
 
-const clamp = (value, min = 0, max = 1) => Math.min(Math.max(value, min), max);
-
-const timeCompatibility = (aMinutes, bMinutes) => {
-  const MAX_DIFF_MINUTES = 12 * 60; // treat anything more than 12 hours apart as a zero
-  const diff = Math.abs(aMinutes - bMinutes);
-  return clamp(1 - diff / MAX_DIFF_MINUTES);
+const METRIC_WEIGHTS = {
+  time: 0.3,
+  streak: 0.25,
+  intensity: 0.2,
+  slump: 0.15,
+  energy: 0.1,
 };
 
-const simpleDifferenceScore = (a, b) => clamp(1 - Math.abs(a - b));
-
-const slumpCompatibility = (slumpA = [], slumpB = []) => {
-  if (!slumpA.length && !slumpB.length) return 1;
-  const overlap = slumpA.filter((day) => slumpB.includes(day)).length;
-  // Moderate penalty when off-days line up; max penalty when three days overlap
-  return clamp(1 - overlap / 3);
-};
-
-const energyCompatibility = (energyA, energyB) => {
-  if (energyA === energyB) return 1;
-  if (energyA === "mix" || energyB === "mix") return 0.75;
-  return 0.4;
-};
-
-const describeWindow = (minutes = 0) => {
-  const hour = minutes / 60;
-  if (hour >= 21 || hour < 4) return "late night";
-  if (hour >= 17) return "evening";
-  if (hour >= 12) return "afternoon";
-  if (hour >= 9) return "late morning";
-  if (hour >= 5) return "early morning";
-  return "overnight";
-};
-
-const dayName = (dayIndex) =>
-  ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][
-    dayIndex % 7
-  ];
-
-export function calculateCompatibility(embeddingA, embeddingB) {
-  if (!embeddingA || !embeddingB) return 0;
-
-  const avgCheckInA = embeddingA.avgCheckInTime ?? 0;
-  const avgCheckInB = embeddingB.avgCheckInTime ?? 0;
-  const streakA = embeddingA.streakConsistency ?? 0;
-  const streakB = embeddingB.streakConsistency ?? 0;
-  const intensityA = embeddingA.trainingIntensity ?? 0;
-  const intensityB = embeddingB.trainingIntensity ?? 0;
-
-  const timeScore = timeCompatibility(
-    avgCheckInA,
-    avgCheckInB
-  );
-  const streakScore = simpleDifferenceScore(
-    streakA,
-    streakB
-  );
-  const intensityScore = simpleDifferenceScore(
-    intensityA,
-    intensityB
-  );
-  const slumpScore = slumpCompatibility(
-    embeddingA.slumpDays ?? [],
-    embeddingB.slumpDays ?? []
-  );
-  const energyScore = energyCompatibility(
-    embeddingA.energyType,
-    embeddingB.energyType
-  );
-
-  const score =
-    timeScore * 0.3 +
-    streakScore * 0.2 +
-    intensityScore * 0.2 +
-    slumpScore * 0.1 +
-    energyScore * 0.2;
-
-  return Math.round(clamp(score) * 100);
+// Time comparison: how close check-in times are (in minutes from midnight)
+function compareTimes(a, b) {
+  const diff = Math.abs(a - b);
+  const normalized = 1 - diff / (24 * 60); // 0–1
+  return {
+    score: Math.max(0, normalized),
+    diffMinutes: diff,
+  };
 }
 
-export function describeCompatibility(embeddingA, embeddingB) {
-  if (!embeddingA || !embeddingB) {
-    return "Not enough data to explain this match yet.";
+// Both are 0–1 already
+function compareStreaks(a, b) {
+  const distance = Math.abs(a - b);
+  return {
+    score: 1 - distance,
+    delta: distance,
+  };
+}
+
+// 0–1 range
+function compareIntensity(a, b) {
+  const distance = Math.abs(a - b);
+  return {
+    score: 1 - distance,
+    delta: distance,
+  };
+}
+
+// Slump days: 0–6 (Sun–Sat)
+function compareSlumps(a = [], b = []) {
+  if (!a.length && !b.length) {
+    return { score: 1, shared: 0, total: 0 };
+  }
+  if (!a.length || !b.length) {
+    return { score: 0, shared: 0, total: new Set([...a, ...b]).size };
   }
 
-  const statements = [];
-  const avgCheckInA = embeddingA.avgCheckInTime ?? 0;
-  const avgCheckInB = embeddingB.avgCheckInTime ?? 0;
-  const timeDiff = Math.abs(avgCheckInA - avgCheckInB);
-  if (timeDiff <= 90) {
-    const sharedWindow = describeWindow((avgCheckInA + avgCheckInB) / 2);
-    statements.push(`You both train in the ${sharedWindow}.`);
-  }
+  const shared = a.filter((day) => b.includes(day)).length;
+  const total = new Set([...a, ...b]).size;
+  return {
+    score: total === 0 ? 0 : shared / total, // 0–1
+    shared,
+    total,
+  };
+}
 
-  const intensityDiff = Math.abs(
-    (embeddingA.trainingIntensity ?? 0) - (embeddingB.trainingIntensity ?? 0)
+// energyType: "strength" | "cardio" | "calisthenics" | "functional" | "mix" | etc.
+function compareEnergy(a, b) {
+  if (a === b) return { score: 1, description: "Same training focus" };
+  if (a === "mix" || b === "mix") {
+    return {
+      score: 0.5,
+      description: "One person cross-trains, so overlap is partial",
+    };
+  }
+  return {
+    score: 0.2,
+    description: "Different focus areas, but still complementary",
+  };
+}
+
+const dayLabels = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+const describeTime = (diff = 0) => {
+  if (diff <= 45) return "Same-hour check-ins";
+  if (diff <= 120) return "Overlapping training windows";
+  if (diff <= 240) return "Different but adjacent windows";
+  return "Opposite training schedules";
+};
+
+const describeStreak = (delta = 0) => {
+  if (delta <= 0.08) return "Consistency twins";
+  if (delta <= 0.18) return "Pretty similar discipline";
+  return "Different streak rhythms";
+};
+
+const describeIntensity = (delta = 0) => {
+  if (delta <= 0.1) return "Match intensity rep-for-rep";
+  if (delta <= 0.25) return "Close enough to push together";
+  return "Intensity mismatch";
+};
+
+const describeSlumps = (shared, total) => {
+  if (total === 0) return "No slump data yet";
+  if (shared === 0) return "Opposite recovery days";
+  if (shared === total) return "Identical recovery rhythm";
+  return "Some shared off days";
+};
+
+/**
+ * embedding shape:
+ * {
+ *   avgCheckInTime: number (0–1440),
+ *   streakConsistency: number (0–1),
+ *   trainingIntensity: number (0–1),
+ *   slumpDays: number[], // 0–6
+ *   energyType: string
+ * }
+ */
+export function calculateCompatibility(userA, userB) {
+  const slumpDaysA = userA.slumpDays || [];
+  const slumpDaysB = userB.slumpDays || [];
+  const time = compareTimes(userA.avgCheckInTime, userB.avgCheckInTime);
+  const streak = compareStreaks(
+    userA.streakConsistency,
+    userB.streakConsistency
   );
-  if (intensityDiff <= 0.15) {
-    statements.push("Your intensity levels are aligned.");
-  }
-
-  if (embeddingA.energyType && embeddingB.energyType) {
-    if (embeddingA.energyType === embeddingB.energyType) {
-      statements.push(
-        `You share a ${embeddingA.energyType} training vibe.`
-      );
-    } else if (
-      embeddingA.energyType === "mix" ||
-      embeddingB.energyType === "mix"
-    ) {
-      statements.push("One of you adapts easily to different training styles.");
-    }
-  }
-
-  const overlapSlumps = (embeddingA.slumpDays ?? []).filter((day) =>
-    (embeddingB.slumpDays ?? []).includes(day)
+  const intensity = compareIntensity(
+    userA.trainingIntensity,
+    userB.trainingIntensity
   );
-  if (overlapSlumps.length) {
-    const names = overlapSlumps.map(dayName).join(" & ");
-    statements.push(`Both tend to slump on ${names}, so you can lock each other in.`);
-  }
+  const slump = compareSlumps(slumpDaysA, slumpDaysB);
+  const energy = compareEnergy(userA.energyType, userB.energyType);
 
-  const streakDiff = Math.abs(
-    (embeddingA.streakConsistency ?? 0) - (embeddingB.streakConsistency ?? 0)
+  const breakdown = [
+    {
+      id: "time",
+      label: "Time overlap",
+      score: Math.round(time.score * 100),
+      weight: METRIC_WEIGHTS.time,
+      description: describeTime(time.diffMinutes),
+    },
+    {
+      id: "streak",
+      label: "Consistency alignment",
+      score: Math.round(streak.score * 100),
+      weight: METRIC_WEIGHTS.streak,
+      description: describeStreak(streak.delta),
+    },
+    {
+      id: "intensity",
+      label: "Intensity similarity",
+      score: Math.round(intensity.score * 100),
+      weight: METRIC_WEIGHTS.intensity,
+      description: describeIntensity(intensity.delta),
+    },
+    {
+      id: "slump",
+      label: "Recovery rhythm",
+      score: Math.round(slump.score * 100),
+      weight: METRIC_WEIGHTS.slump,
+      description: describeSlumps(slump.shared, slump.total),
+      detail:
+        slump.shared > 0
+          ? `Shared off days: ${slumpDaysA
+              .filter((day) => slumpDaysB.includes(day))
+              .map((day) => dayLabels[day])
+              .join(" · ")}`
+          : "",
+    },
+    {
+      id: "energy",
+      label: "Category preference",
+      score: Math.round(energy.score * 100),
+      weight: METRIC_WEIGHTS.energy,
+      description:
+        energy.description ||
+        `You: ${userA.energyType || "mix"} vs ${userB.energyType || "mix"}`,
+    },
+  ];
+
+  const totalScore = breakdown.reduce(
+    (sum, metric) => sum + (metric.score / 100) * metric.weight,
+    0
   );
-  if (streakDiff <= 0.1) {
-    statements.push("Your streak consistency is almost identical.");
-  }
 
-  return statements.length
-    ? statements.join(" ")
-    : "You have complementary habits that make accountability easy.";
+  return {
+    score: Math.round(totalScore * 100),
+    breakdown,
+  };
 }

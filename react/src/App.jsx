@@ -13,7 +13,10 @@ import Streaks from "./pages/Streaks";
 export default function App() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState(location.state?.tab || "feed");
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.sessionStorage.getItem("lockedin:splash-dismissed") !== "true";
+  });
   const [splashReady, setSplashReady] = useState(false);
 
   useEffect(() => {
@@ -47,7 +50,13 @@ export default function App() {
             behavior loading
           </div>
           <button
-            onClick={() => splashReady && setShowSplash(false)}
+            onClick={() => {
+              if (!splashReady) return;
+              setShowSplash(false);
+              if (typeof window !== "undefined") {
+                window.sessionStorage.setItem("lockedin:splash-dismissed", "true");
+              }
+            }}
             disabled={!splashReady}
             className={`px-6 py-2 rounded-full border text-sm tracking-wide transition ${
               splashReady

@@ -7,6 +7,25 @@ export default function runRepCounter(videoElement, repCallback, exercise) {
   const lerp = (prev, next, factor = 0.2) =>
     prev === null ? next : prev + (next - prev) * factor;
 
+  const degrees = (radians) => (radians * 180) / Math.PI;
+
+  function angle(a, b, c) {
+    if (!a || !b || !c) return null;
+
+    const ab = { x: a.x - b.x, y: a.y - b.y };
+    const cb = { x: c.x - b.x, y: c.y - b.y };
+
+    const abMag = Math.hypot(ab.x, ab.y);
+    const cbMag = Math.hypot(cb.x, cb.y);
+
+    if (abMag === 0 || cbMag === 0) return null;
+
+    const cosine = (ab.x * cb.x + ab.y * cb.y) / (abMag * cbMag);
+    const clamped = Math.max(-1, Math.min(1, cosine));
+
+    return degrees(Math.acos(clamped));
+  }
+
   // Distance helper
   function distance(a, b) {
     return Math.sqrt(
@@ -20,53 +39,42 @@ export default function runRepCounter(videoElement, repCallback, exercise) {
   // =======================================================
 
   const curlState = {
-    lastDist: null,
-    direction: null,
+    filteredAngle: null,
     passedMid: false,
     repLocked: false,
   };
 
   function countCurl(lm) {
-    const shoulder = lm[12];
-    const wrist = lm[16];
+    const rightAngle = angle(lm[12], lm[14], lm[16]);
+    const leftAngle = angle(lm[11], lm[13], lm[15]);
 
-    const dist = distance(shoulder, wrist);
+    const samples = [rightAngle, leftAngle].filter((value) => value !== null);
+    if (!samples.length) return;
 
-    const DOWN_THRESHOLD = 0.78;
-    const MID_THRESHOLD = 0.72;
-    const UP_THRESHOLD = 0.66;
+    const avgAngle =
+      samples.reduce((sum, value) => sum + value, 0) / samples.length;
 
-    if (curlState.lastDist === null) {
-      curlState.lastDist = dist;
-      return;
-    }
+    curlState.filteredAngle = lerp(curlState.filteredAngle, avgAngle, 0.25);
+    const angleValue = curlState.filteredAngle ?? avgAngle;
 
-    const delta = dist - curlState.lastDist;
+    const MID_ANGLE = 120;
+    const TOP_ANGLE = 55;
+    const BOTTOM_ANGLE = 155;
 
-    if (delta < -0.01) curlState.direction = "up";
-    if (delta > 0.01) curlState.direction = "down";
-
-    if (dist < MID_THRESHOLD && curlState.direction === "up") {
+    if (angleValue <= MID_ANGLE) {
       curlState.passedMid = true;
     }
 
-    if (
-      dist < UP_THRESHOLD &&
-      curlState.passedMid &&
-      curlState.direction === "up" &&
-      !curlState.repLocked
-    ) {
+    if (angleValue <= TOP_ANGLE && curlState.passedMid && !curlState.repLocked) {
       repCount++;
       repCallback(repCount);
       curlState.repLocked = true;
     }
 
-    if (dist > DOWN_THRESHOLD && curlState.direction === "down") {
+    if (angleValue >= BOTTOM_ANGLE) {
       curlState.repLocked = false;
       curlState.passedMid = false;
     }
-
-    curlState.lastDist = dist;
   }
 
   // =======================================================
