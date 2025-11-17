@@ -7,7 +7,7 @@ Everything runs fully in the browser with **no backend**.
 
 # **Public Repository Link**
 
-[https://github.com/YOUR-USERNAME/Gymsnap](https://github.com/YOUR-USERNAME/Gymsnap)
+https://github.com/ukkandi/Gymsnap
 
 # **Setup / Run Instructions**
 
